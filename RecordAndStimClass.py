@@ -11,7 +11,7 @@ class RecordAndStim(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         label = tk.Label(self, text="Record with Stim")
-        label.grid(column=0, row=0)
+        label.grid(column=1, row=7)
 
         button1 = tk.Button(self, text="R",
                             command=lambda: controller.show_frame(controller.Record))
