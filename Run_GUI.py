@@ -52,7 +52,7 @@ def main():
     app = BehaviorRecorder()
 
     app.mainloop()
-    print(dir(app.frames))
+    #print(dir(app.frames))
 
 if __name__ == "__main__":
     main()
