@@ -1,22 +1,22 @@
 # -*- coding: utf-8 -*-
 """
 Created on Tue Oct 25 14:47:09 2022
-
+from conda consol:
+conda activate dlc-live
+cd to Directory
+python Video_Recording_Behavior.py
 @author: kevin
 """
-
 import tkinter as tk
 from RecordAndStimClass import RecordAndStim
 from RecordClass import Record
 from StimTestClass import StimTest
 
-LARGE_FONT= ("Verdana", 12)
-
 
 class BehaviorRecorder(tk.Tk):
 
     def __init__(self, *args, **kwargs):
-        
+
         tk.Tk.__init__(self, *args, **kwargs)
         self.container = tk.Frame(self)
 
@@ -24,7 +24,7 @@ class BehaviorRecorder(tk.Tk):
 
         self.container.grid_rowconfigure(0, weight=1)
         self.container.grid_columnconfigure(0, weight=1)
-        
+
 
         self.frames = {}
         self.RecordAndStim = RecordAndStim
@@ -46,13 +46,13 @@ class BehaviorRecorder(tk.Tk):
         frame = self.frames[cont]
         frame.tkraise()
 
-  
-        
+
+
 def main():
     app = BehaviorRecorder()
-    
+
     app.mainloop()
-    print(dir(app.frames))
-    
+    #print(dir(app.frames))
+
 if __name__ == "__main__":
     main()

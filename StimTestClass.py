@@ -11,16 +11,13 @@ class StimTest(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         label = tk.Label(self, text="Test Stimulation")
-        label.grid(column=0, row=0)
+        label.grid(column=1, row=7)
 
-        button1 = tk.Button(self, text="R",
+        button1 = tk.Button(self, text="Record",
                             command=lambda: controller.show_frame(controller.Record))
         button1.grid(column=0, row=1)
 
 
-        button2 = tk.Button(self, text="RS",
+        button2 = tk.Button(self, text="Record and Stim",
                             command=lambda: controller.show_frame(controller.RecordAndStim))
         button2.grid(column=0, row=2)
-
-
-    
