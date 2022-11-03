@@ -6,14 +6,21 @@ Created on Wed Oct 26 13:25:30 2022
 """
 import cv2
 import threading
-from PIL import Image, ImageTk
+from PIL import ImageTk
 from queue import Queue
 from datetime import date,datetime
 from tkinter import filedialog
 import os
 import tkinter as tk
+from dlclive import DLCLive, Processor
+from create_label_frame import create_label_frame as labelfr
 
 class Record(tk.Frame):
+
+    #class variables for list of usable dlc models
+    dogmodel = "C:/Users/kevin/local Python Scripts/test_dlc_live/DLC_Dog_resnet_50_iteration-0_shuffle-0"
+    humanmodel = "C:/Users/kevin/local Python Scripts/test_dlc_live/DLC_human_dancing_resnet_101_iteration-0_shuffle-1"
+
 
     def __init__(self, parent, controller):
         tk.Frame.__init__(self,parent)
@@ -29,6 +36,9 @@ class Record(tk.Frame):
                             command=lambda: controller.show_frame(controller.StimTest))
         self.button2.grid(column=0, row=2)
 
+        self.dlctoggle = False
+        self.toggle_btn = tk.Button(self, text="DLC", width=12, relief="raised",command=self.toggle)
+        self.toggle_btn.grid(column=1, row=0)
 
         self.orig_lbl = tk.Label(self, text="Directory")
         self.orig_lbl.grid(column=0, row=3)
@@ -103,9 +113,23 @@ class Record(tk.Frame):
         self.running = False
         self.after_id = None
         self.frame_queue = Queue()
+        self.pose_queue = Queue()
         self.new_file_name = ""
         self.dir_n = ""
 
+        self.inference_model = DLCLive(self.humanmodel, processor = Processor())
+        #self.inference_model = DLCLive(self.model, processor = Processor())#for selecting own model
+
+    def toggle(self):
+
+        if self.toggle_btn.config('relief')[-1] == 'sunken':
+            self.toggle_btn.config(relief="raised")
+            self.dlctoggle = False
+
+        else:
+            self.toggle_btn.config(relief="sunken")
+            #self.model=filedialog.askdirectory()#for selecting own model
+            self.dlctoggle = True
 
     def gen_name(self):
 
@@ -113,9 +137,7 @@ class Record(tk.Frame):
         self.final_lbl.configure(text=self.new_file_name)
         print("Saving data as " + self.new_file_name)
 
-
-
-    def start_capture(self):
+    def recording(self):
 
 
         fr=float(self.FR_val.get())
@@ -137,44 +159,44 @@ class Record(tk.Frame):
 
             rect, frame =  capture.read()
 
-            if rect:
-                cv2image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)
-                videoImg = Image.fromarray(cv2image)
-                # current_frame = ImageTk.PhotoImage(image = videoImg)
-                self.frame_queue.put(videoImg)
-                video_writer.write(frame)
-                frame_ct=frame_ct+1
+            if self.dlctoggle:
+                pose = self.inference_model.get_pose(frame)
+            else:
+                pose = None
 
-                if frame_ct >= file_size*60*30:
-                    print('Successfully saved file as ' + self.new_file_name + "_" + now.strftime("%m_%d_%y_%H_%M_%S") + '.mp4')
-                    break
+            videoImg = labelfr(frame = frame, pose = pose)
+
+            self.frame_queue.put(videoImg)
+            video_writer.write(frame)
+            frame_ct=frame_ct+1
+
+            if frame_ct >= file_size*60*30:
+                print('Successfully saved file as ' + self.new_file_name + "_" + now.strftime("%m_%d_%y_%H_%M_%S") + '.mp4')
+                break
 
         capture.release()
         video_writer.release()
         if frame_ct < file_size*60*30:
             print('Recording ended early, saved file as ' + self.new_file_name + "_" + now.strftime("%m_%d_%y_%H_%M_%S") + '.mp4')
 
-
     def streaming(self):
 
         camindex = int(self.Cam_Select.get())
-
-
-
         capture = cv2.VideoCapture(camindex)
         while self.running:
 
             rect, frame =  capture.read()
+            #pose goes here
+            if self.dlctoggle:
+                pose = self.inference_model.get_pose(frame)
+            else:
+                pose = None
 
-            if rect:
-                cv2image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)
-                videoImg = Image.fromarray(cv2image)
-                # current_frame = ImageTk.PhotoImage(image = videoImg)
-                self.frame_queue.put(videoImg)
+            videoImg = labelfr(frame = frame, pose = pose)
+            self.frame_queue.put(videoImg)
 
         capture.release()
         print('Stream ended, ready to record')
-
 
     def stop_rec(self):
         #nonlocal running, after_id
@@ -186,22 +208,40 @@ class Record(tk.Frame):
 
         with self.frame_queue.mutex:
             self.frame_queue.queue.clear()
+        with self.pose_queue.mutex:
+            self.pose_queue.queue.clear()
+
+        if self.inference_model.sess is not None:
+            self.inference_model.close()
 
     def start_rec(self):
-        # nonlocal running
+
         self.running = False
         self.stop_rec()
 
+        if self.dlctoggle:
+            camindex = int(self.Cam_Select.get())
+            capturetemp = cv2.VideoCapture(camindex)
+            rect1, firstframe =  capturetemp.read()
+            capturetemp.release()
+            self.inference_model.init_inference(firstframe)
+
         self.running = True
-        thread = threading.Thread(target=self.start_capture, daemon=True)
+        thread = threading.Thread(target=self.recording, daemon=True)
         thread.start()
         self.update_frame()
 
-
     def start_stream(self):
-        # nonlocal running
+
         self.running = False
         self.stop_rec()
+
+        if self.dlctoggle:
+            camindex = int(self.Cam_Select.get())
+            capturetemp = cv2.VideoCapture(camindex)
+            rect1, firstframe =  capturetemp.read()
+            capturetemp.release()
+            self.inference_model.init_inference(firstframe)
 
         self.running = True
         thread = threading.Thread(target=self.streaming, daemon=True)
@@ -216,10 +256,6 @@ class Record(tk.Frame):
             self.video_label.config(image=self.video_label.image_frame)
 
         self.after_id = self.after(10, self.update_frame)
-
-    # def closeWindow(self):
-    #     self.stop_rec()
-    #     controller.destroy()
 
     def sel_dir(self):
         #nonlocal dir_n
