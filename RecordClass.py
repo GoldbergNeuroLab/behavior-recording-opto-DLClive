@@ -13,14 +13,17 @@ from tkinter import filedialog
 import os
 import tkinter as tk
 from dlclive import DLCLive, Processor
+
+from test_dog_process import JunoJumpOffline #select processor here
+
 from create_label_frame import create_label_frame as labelfr
 
 class Record(tk.Frame):
 
-    #class variables for list of usable dlc models
+    #class variables for list of usable dlc models - need to use 'export model' function from DLC - should include .pb files
     dogmodel = "C:/Users/kevin/local Python Scripts/test_dlc_live/DLC_Dog_resnet_50_iteration-0_shuffle-0"
     humanmodel = "C:/Users/kevin/local Python Scripts/test_dlc_live/DLC_human_dancing_resnet_101_iteration-0_shuffle-1"
-
+    mousemodel = "C:/Users/kevin/local Python Scripts/dlc live model for three chamber/DLC_KG230_3ch_mobilenet_v2_1.0_iteration-0_shuffle-1"
 
     def __init__(self, parent, controller):
         tk.Frame.__init__(self,parent)
@@ -117,7 +120,7 @@ class Record(tk.Frame):
         self.new_file_name = ""
         self.dir_n = ""
 
-        self.inference_model = DLCLive(self.humanmodel, processor = Processor())
+        self.inference_model = DLCLive(self.mousemodel, processor = JunoJumpOffline())
         #self.inference_model = DLCLive(self.model, processor = Processor())#for selecting own model
 
     def toggle(self):
