@@ -4,6 +4,7 @@ Created on Wed Oct 26 13:25:30 2022
 
 @author: kevin
 """
+import time
 import cv2
 import threading
 from PIL import ImageTk
@@ -13,9 +14,7 @@ from tkinter import filedialog
 import os
 import tkinter as tk
 from dlclive import DLCLive, Processor
-
-from test_dog_process import JunoJumpOffline #select processor here
-
+from Three_chamber_processor import TC_proc #select processor here
 from create_label_frame import create_label_frame as labelfr
 
 class Record(tk.Frame):
@@ -36,7 +35,7 @@ class Record(tk.Frame):
 
 
         self.button2 = tk.Button(self, text="Stim Test",
-                            command=lambda: controller.show_frame(controller.StimTest))
+                            command=lambda: self.test_stim())
         self.button2.grid(column=0, row=2)
 
         self.dlctoggle = False
@@ -120,9 +119,14 @@ class Record(tk.Frame):
         self.new_file_name = ""
         self.dir_n = ""
 
-        self.inference_model = DLCLive(self.mousemodel, processor = JunoJumpOffline())
-        #self.inference_model = DLCLive(self.model, processor = Processor())#for selecting own model
+        self.inference_model = DLCLive(self.mousemodel, processor = TC_proc(com = "COM3"))
 
+        #self.inference_model = DLCLive(self.model, processor = Processor())#for selecting own model
+    def test_stim(self):
+        time.sleep(0.1)
+        self.inference_model.processor.ser.write(b'H')
+        time.sleep(2)
+        self.inference_model.processor.ser.write(b'L')
     def toggle(self):
 
         if self.toggle_btn.config('relief')[-1] == 'sunken':
@@ -142,7 +146,6 @@ class Record(tk.Frame):
 
     def recording(self):
 
-
         fr=float(self.FR_val.get())
         file_size=float(self.Time_limit.get())
         camindex = int(self.Cam_Select.get())
@@ -152,7 +155,8 @@ class Record(tk.Frame):
         now=datetime.now()
         if not os.path.exists(self.dir_n + '\\'+ today.strftime("%m_%d_%y")):
             os.mkdir(self.dir_n + '\\'+ today.strftime("%m_%d_%y"))
-
+        if not os.path.exists(self.dir_n + '\\'+ today.strftime("%m_%d_%y")+'\\' + "processor"):
+            os.mkdir(self.dir_n + '\\'+ today.strftime("%m_%d_%y")+'\\' + "processor")
 
         fourcc = cv2.VideoWriter_fourcc('M', 'P', '4', 'V')
         fname=self.dir_n + '\\' + today.strftime("%m_%d_%y") +'\\' + self.new_file_name + "_" + now.strftime("%m_%d_%y_%H_%M_%S") + '.mp4'
@@ -163,7 +167,7 @@ class Record(tk.Frame):
             rect, frame =  capture.read()
 
             if self.dlctoggle:
-                pose = self.inference_model.get_pose(frame)
+                pose = self.inference_model.get_pose(frame, frame_time=frame_ct)
             else:
                 pose = None
 
@@ -179,6 +183,14 @@ class Record(tk.Frame):
 
         capture.release()
         video_writer.release()
+        processor_output = self.dir_n + '\\' + today.strftime("%m_%d_%y") +'\\' + "processor" + '\\' + self.new_file_name + "_" + now.strftime("%m_%d_%y_%H_%M_%S")
+        self.inference_model.processor.save(processor_output)
+        self.inference_model.processor.turn_stim_off()
+        self.inference_model.processor.close_serial()
+        #reinitialize COM access
+        self.inference_model = DLCLive(self.mousemodel, processor = TC_proc(com = "COM3"))
+
+
         if frame_ct < file_size*60*30:
             print('Recording ended early, saved file as ' + self.new_file_name + "_" + now.strftime("%m_%d_%y_%H_%M_%S") + '.mp4')
 
@@ -191,7 +203,7 @@ class Record(tk.Frame):
             rect, frame =  capture.read()
             #pose goes here
             if self.dlctoggle:
-                pose = self.inference_model.get_pose(frame)
+                pose = self.inference_model.get_pose(frame,frame_time=None)
             else:
                 pose = None
 
@@ -227,7 +239,7 @@ class Record(tk.Frame):
             capturetemp = cv2.VideoCapture(camindex)
             rect1, firstframe =  capturetemp.read()
             capturetemp.release()
-            self.inference_model.init_inference(firstframe)
+            self.inference_model.init_inference(firstframe,frame_time = None)
 
         self.running = True
         thread = threading.Thread(target=self.recording, daemon=True)

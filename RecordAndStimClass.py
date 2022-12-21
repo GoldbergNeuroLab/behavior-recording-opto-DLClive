@@ -5,19 +5,19 @@ Created on Wed Oct 26 12:56:23 2022
 @author: kevin
 """
 import tkinter as tk
-
-class RecordAndStim(tk.Frame):
+from RecordClass import Record
+class RecordAndStim(Record):
 
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         label = tk.Label(self, text="Record with Stim")
         label.grid(column=1, row=7)
 
-        button1 = tk.Button(self, text="R",
+        self.button  = tk.Button(self, text="Record",
                             command=lambda: controller.show_frame(controller.Record))
-        button1.grid(column=0, row=1)
+        self.button .grid(column=0, row=1)
 
 
-        button2 = tk.Button(self, text="ST",
+        self.button2 = tk.Button(self, text="Stim Test",
                             command=lambda: controller.show_frame(controller.StimTest))
-        button2.grid(column=0, row=2)
+        self.button2.grid(column=0, row=2)
