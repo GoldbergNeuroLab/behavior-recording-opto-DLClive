@@ -14,7 +14,7 @@ from tkinter import filedialog
 import os
 import tkinter as tk
 from dlclive import DLCLive, Processor
-from Three_chamber_processor import TC_proc #select processor here
+from processor_collection import TC_proc, OF_proc, TC_proc_short, OF_proc_short #select processor here
 from create_label_frame import create_label_frame as labelfr
 
 class Record(tk.Frame):
@@ -24,13 +24,13 @@ class Record(tk.Frame):
     humanmodel = "C:/Users/kevin/local Python Scripts/test_dlc_live/DLC_human_dancing_resnet_101_iteration-0_shuffle-1"
     mousemodel = "C:/Users/kevin/local Python Scripts/dlc live model for three chamber/DLC_KG230_3ch_mobilenet_v2_1.0_iteration-0_shuffle-1"
 
-    def __init__(self, parent, controller):
+    def __init__(self, parent, controller, model = "C:/Users/kevin/local Python Scripts/dlc live model for three chamber/DLC_KG230_3ch_mobilenet_v2_1.0_iteration-0_shuffle-1"):
         tk.Frame.__init__(self,parent)
         label = tk.Label(self, text="Record Behavior")
         label.grid(column=1, row=7)
 
-        self.button = tk.Button(self, text="Record and Stim",
-                            command=lambda: controller.show_frame(controller.RecordAndStim))
+        self.button = tk.Button(self, text="Model",
+                            command=lambda: self.choose_model())
         self.button.grid(column=0, row=1)
 
 
@@ -116,10 +116,11 @@ class Record(tk.Frame):
         self.after_id = None
         self.frame_queue = Queue()
         self.pose_queue = Queue()
-        self.new_file_name = ""
-        self.dir_n = ""
+        self.new_file_name = "" #default filename will just be the date if not generated
+        self.dir_n = "D:/KG230 Behavior"#default directory
+        self.model = ""#no default model or processor
+        self.proc = ""
 
-        self.inference_model = DLCLive(self.mousemodel, processor = TC_proc(com = "COM3"))
 
         #self.inference_model = DLCLive(self.model, processor = Processor())#for selecting own model
     def test_stim(self):
@@ -127,6 +128,7 @@ class Record(tk.Frame):
         self.inference_model.processor.ser.write(b'H')
         time.sleep(2)
         self.inference_model.processor.ser.write(b'L')
+
     def toggle(self):
 
         if self.toggle_btn.config('relief')[-1] == 'sunken':
@@ -137,6 +139,7 @@ class Record(tk.Frame):
             self.toggle_btn.config(relief="sunken")
             #self.model=filedialog.askdirectory()#for selecting own model
             self.dlctoggle = True
+            self.choose_model()
 
     def gen_name(self):
 
@@ -183,12 +186,31 @@ class Record(tk.Frame):
 
         capture.release()
         video_writer.release()
-        processor_output = self.dir_n + '\\' + today.strftime("%m_%d_%y") +'\\' + "processor" + '\\' + self.new_file_name + "_" + now.strftime("%m_%d_%y_%H_%M_%S")
-        self.inference_model.processor.save(processor_output)
-        self.inference_model.processor.turn_stim_off()
-        self.inference_model.processor.close_serial()
-        #reinitialize COM access
-        self.inference_model = DLCLive(self.mousemodel, processor = TC_proc(com = "COM3"))
+
+        if self.dlctoggle:
+            processor_output = self.dir_n + '\\' + today.strftime("%m_%d_%y") +'\\' + "processor" + '\\' + self.new_file_name + "_" + now.strftime("%m_%d_%y_%H_%M_%S")
+            self.inference_model.processor.save(processor_output)
+            self.inference_model.processor.turn_stim_off()
+            self.inference_model.processor.close_serial()
+
+            #reinitialize COM access
+            if self.inference_model.sess is not None:
+                self.inference_model.close()
+
+            if self.user_input == 1:
+                self.proc = TC_proc(com = "COM3")
+
+            if self.user_input == 2:
+                self.proc = OF_proc(com = "COM3")
+
+            if self.user_input == 3:
+                self.proc = TC_proc_short(com = "COM3")
+
+            if self.user_input == 4:
+                self.proc = OF_proc_short(com = "COM3")
+
+            self.inference_model = DLCLive(self.model, processor = self.proc)
+
 
 
         if frame_ct < file_size*60*30:
@@ -202,12 +224,12 @@ class Record(tk.Frame):
 
             rect, frame =  capture.read()
             #pose goes here
-            if self.dlctoggle:
-                pose = self.inference_model.get_pose(frame,frame_time=None)
-            else:
-                pose = None
+            #if self.dlctoggle:
+            #    pose = self.inference_model.get_pose(frame,frame_time=None)
+            #else:
+            #    pose = None
 
-            videoImg = labelfr(frame = frame, pose = pose)
+            videoImg = labelfr(frame = frame, pose = None)
             self.frame_queue.put(videoImg)
 
         capture.release()
@@ -226,9 +248,6 @@ class Record(tk.Frame):
         with self.pose_queue.mutex:
             self.pose_queue.queue.clear()
 
-        if self.inference_model.sess is not None:
-            self.inference_model.close()
-
     def start_rec(self):
 
         self.running = False
@@ -239,7 +258,7 @@ class Record(tk.Frame):
             capturetemp = cv2.VideoCapture(camindex)
             rect1, firstframe =  capturetemp.read()
             capturetemp.release()
-            self.inference_model.init_inference(firstframe,frame_time = None)
+            self.inference_model.init_inference(firstframe,frame_time = 1)
 
         self.running = True
         thread = threading.Thread(target=self.recording, daemon=True)
@@ -251,12 +270,12 @@ class Record(tk.Frame):
         self.running = False
         self.stop_rec()
 
-        if self.dlctoggle:
-            camindex = int(self.Cam_Select.get())
-            capturetemp = cv2.VideoCapture(camindex)
-            rect1, firstframe =  capturetemp.read()
-            capturetemp.release()
-            self.inference_model.init_inference(firstframe)
+        #if self.dlctoggle:
+        #    camindex = int(self.Cam_Select.get())
+        #    capturetemp = cv2.VideoCapture(camindex)
+        #    rect1, firstframe =  capturetemp.read()
+        #    capturetemp.release()
+        #    self.inference_model.init_inference(firstframe)
 
         self.running = True
         thread = threading.Thread(target=self.streaming, daemon=True)
@@ -275,3 +294,32 @@ class Record(tk.Frame):
     def sel_dir(self):
         #nonlocal dir_n
         self.dir_n=filedialog.askdirectory()
+
+    def choose_model(self):
+
+        try:
+            self.inference_model.processor.close_serial()
+        except:
+            pass
+
+        print("choose a model")
+        self.model=filedialog.askdirectory()
+        self.user_input = int(input("\n Which processor (1,2,3,4): TC_proc / OF_proc / TC_proc_short / OF_proc_short: "))
+
+        if self.user_input == 1:
+            self.proc = TC_proc(com = "COM3")
+
+        if self.user_input == 2:
+            self.proc = OF_proc(com = "COM3")
+
+        if self.user_input == 3:
+            self.proc = TC_proc_short(com = "COM3")
+
+        if self.user_input == 4:
+            self.proc = OF_proc_short(com = "COM3")
+
+        self.inference_model = DLCLive(self.model, processor = self.proc)
+
+        if self.user_input != 1 and self.user_input != 2 and self.user_input != 3 and self.user_input != 4:
+            print('Unable to load processor, check input')
+            self.choose_model()
